@@ -7,8 +7,8 @@ local Camera = workspace.CurrentCamera
 local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
-local alcanceMaximo = 400
-local alturaVoo = 5 -- Distância acima do inimigo
+local alcanceMaximo = 300
+local alvoAtual = nil -- Variável para travar em um único jogador
 
 -- Interface Yelzy Hub
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
@@ -25,7 +25,7 @@ mainFrame.Draggable = true
 local titleBar = Instance.new("TextLabel", mainFrame)
 titleBar.Size = UDim2.new(1, 0, 0, 30)
 titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-titleBar.Text = "Yelzy Hub - Sky Aura"
+titleBar.Text = "Yelzy Hub - Fixed"
 titleBar.TextColor3 = Color3.new(1, 1, 1)
 titleBar.Font = Enum.Font.SourceSansBold
 titleBar.TextSize = 18
@@ -44,68 +44,81 @@ end
 
 local btnEsp = criarBotao("ESP", 40)
 local btnAim = criarBotao("Aimbot", 90)
-local btnKill = criarBotao("Sky Kill Aura", 140)
+local btnKill = criarBotao("Kill Aura (Fix)", 140)
 
-local function obterAlvo()
+-- Função para validar se o alvo ainda pode ser atacado
+local function validarAlvo(personagem)
+    if personagem and personagem:FindFirstChild("HumanoidRootPart") and personagem:FindFirstChild("Humanoid") then
+        if personagem.Humanoid.Health > 0 then
+            return true
+        end
+    end
+    return false
+end
+
+-- Função para achar o NOVO alvo mais próximo
+local function procurarNovoAlvo()
     local alvoProx, menorDist = nil, alcanceMaximo
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local root = p.Character:FindFirstChild("HumanoidRootPart")
-            local hum = p.Character:FindFirstChild("Humanoid")
-            if root and hum and hum.Health > 0 then
-                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                if dist < menorDist then
-                    menorDist = dist
-                    alvoProx = p.Character
-                end
+        if p ~= LocalPlayer and p.Character and validarAlvo(p.Character) then
+            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if dist < menorDist then
+                menorDist = dist
+                alvoProx = p.Character
             end
         end
     end
     return alvoProx
 end
 
--- Loop Principal de Combate
+-- Loop de Combate
 task.spawn(function()
     while true do
         task.wait()
         if killAuraLigado then
-            local alvo = obterAlvo()
-            if alvo and LocalPlayer.Character then
+            -- Se não tem alvo ou o alvo atual morreu, procura um novo
+            if not alvoAtual or not validarAlvo(alvoAtual) then
+                alvoAtual = procurarNovoAlvo()
+            end
+
+            if alvoAtual and LocalPlayer.Character then
                 local meuRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
+                local alvoRoot = alvoAtual:FindFirstChild("HumanoidRootPart")
                 
                 if meuRoot and alvoRoot then
-                    -- Cancela gravidade/movimento pra não bugar
                     meuRoot.Velocity = Vector3.new(0, 0, 0)
+                    -- Volta a ficar ATRÁS do jogador para o click funcionar
+                    meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 0, 3)
                     
-                    -- Posiciona ACIMA do alvo e olha para ele
-                    local posicaoAcima = alvoRoot.Position + Vector3.new(0, alturaVoo, 0)
-                    meuRoot.CFrame = CFrame.new(posicaoAcima, alvoRoot.Position)
-                    
-                    -- Ataque de Click (Spam)
+                    -- Click e Skills
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
                     
-                    -- Spam de Skills com delay funcional
-                    local skills = {Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}
-                    for _, tecla in ipairs(skills) do
+                    for _, tecla in ipairs({Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}) do
                         VirtualInputManager:SendKeyEvent(true, tecla, false, game)
                         task.wait(0.01)
                         VirtualInputManager:SendKeyEvent(false, tecla, false, game)
                     end
                 end
             end
+        else
+            alvoAtual = nil -- Reseta o alvo se desligar o botão
         end
     end
 end)
 
 btnKill.MouseButton1Click:Connect(function()
     killAuraLigado = not killAuraLigado
-    btnKill.Text = "Sky Aura: " .. (killAuraLigado and "ON" or "OFF")
-    btnKill.TextColor3 = killAuraLigado and Color3.new(0.3, 1, 0.3) or Color3.fromRGB(200, 200, 200)
+    btnKill.Text = "Kill Aura: " .. (killAuraLigado and "ON" or "OFF")
+    btnKill.TextColor3 = killAuraLigado and Color3.new(0, 1, 0) or Color3.fromRGB(200, 200, 200)
+    
+    if not killAuraLigado and LocalPlayer.Character then
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then root.Velocity = Vector3.new(0,0,0) end
+    end
 end)
 
--- Outras funções (ESP e Aimbot)
+-- ESP e Aimbot
 btnEsp.MouseButton1Click:Connect(function()
     espLigado = not espLigado
     btnEsp.Text = "ESP: " .. (espLigado and "ON" or "OFF")
@@ -120,16 +133,8 @@ RunService.RenderStepped:Connect(function()
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and not p.Character:FindFirstChild("EspHighlight") then
-                local h = Instance.new("Highlight", p.Character)
-                h.Name = "EspHighlight"
-                h.FillColor = Color3.new(1, 0, 0)
+                Instance.new("Highlight", p.Character).Name = "EspHighlight"
             end
-        end
-    end
-    if aimbotLigado and not killAuraLigado then
-        local alvo = obterAlvo()
-        if alvo and alvo:FindFirstChild("Head") then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvo.Head.Position), 0.15)
         end
     end
 end)
