@@ -7,10 +7,10 @@ local Camera = workspace.CurrentCamera
 local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
-local alcanceMaximo = 300 
-local suavidade = 0.15
+local alcanceMaximo = 400
+local alturaVoo = 5 -- Distância acima do inimigo
 
--- Interface
+-- Interface Yelzy Hub
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 screenGui.Name = "YelzyHub"
 screenGui.ResetOnSpawn = false
@@ -25,7 +25,7 @@ mainFrame.Draggable = true
 local titleBar = Instance.new("TextLabel", mainFrame)
 titleBar.Size = UDim2.new(1, 0, 0, 30)
 titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-titleBar.Text = "Yelzy Hub V2"
+titleBar.Text = "Yelzy Hub - Sky Aura"
 titleBar.TextColor3 = Color3.new(1, 1, 1)
 titleBar.Font = Enum.Font.SourceSansBold
 titleBar.TextSize = 18
@@ -44,7 +44,7 @@ end
 
 local btnEsp = criarBotao("ESP", 40)
 local btnAim = criarBotao("Aimbot", 90)
-local btnKill = criarBotao("Kill Aura TP", 140)
+local btnKill = criarBotao("Sky Kill Aura", 140)
 
 local function obterAlvo()
     local alvoProx, menorDist = nil, alcanceMaximo
@@ -64,7 +64,7 @@ local function obterAlvo()
     return alvoProx
 end
 
--- Loop de Ataque
+-- Loop Principal de Combate
 task.spawn(function()
     while true do
         task.wait()
@@ -75,18 +75,23 @@ task.spawn(function()
                 local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
                 
                 if meuRoot and alvoRoot then
-                    -- Teleporte Suave Atrás
-                    meuRoot.Velocity = Vector3.new(0,0,0) -- Para a inércia pra não deslizar
-                    meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 0, 3)
+                    -- Cancela gravidade/movimento pra não bugar
+                    meuRoot.Velocity = Vector3.new(0, 0, 0)
                     
-                    -- Cliques e Skills
+                    -- Posiciona ACIMA do alvo e olha para ele
+                    local posicaoAcima = alvoRoot.Position + Vector3.new(0, alturaVoo, 0)
+                    meuRoot.CFrame = CFrame.new(posicaoAcima, alvoRoot.Position)
+                    
+                    -- Ataque de Click (Spam)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
                     
-                    for _, key in ipairs({Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}) do
-                        VirtualInputManager:SendKeyEvent(true, key, false, game)
-                        task.wait(0.02)
-                        VirtualInputManager:SendKeyEvent(false, key, false, game)
+                    -- Spam de Skills com delay funcional
+                    local skills = {Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}
+                    for _, tecla in ipairs(skills) do
+                        VirtualInputManager:SendKeyEvent(true, tecla, false, game)
+                        task.wait(0.01)
+                        VirtualInputManager:SendKeyEvent(false, tecla, false, game)
                     end
                 end
             end
@@ -96,17 +101,11 @@ end)
 
 btnKill.MouseButton1Click:Connect(function()
     killAuraLigado = not killAuraLigado
-    btnKill.Text = "Kill Aura: " .. (killAuraLigado and "ON" or "OFF")
-    btnKill.TextColor3 = killAuraLigado and Color3.new(1, 0, 0) or Color3.fromRGB(200, 200, 200)
-    
-    if not killAuraLigado and LocalPlayer.Character then
-        -- Reset de velocidade ao desligar para conseguir andar
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then root.Velocity = Vector3.new(0,0,0) end
-    end
+    btnKill.Text = "Sky Aura: " .. (killAuraLigado and "ON" or "OFF")
+    btnKill.TextColor3 = killAuraLigado and Color3.new(0.3, 1, 0.3) or Color3.fromRGB(200, 200, 200)
 end)
 
--- Restante (ESP/Aim)
+-- Outras funções (ESP e Aimbot)
 btnEsp.MouseButton1Click:Connect(function()
     espLigado = not espLigado
     btnEsp.Text = "ESP: " .. (espLigado and "ON" or "OFF")
@@ -121,14 +120,16 @@ RunService.RenderStepped:Connect(function()
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and not p.Character:FindFirstChild("EspHighlight") then
-                Instance.new("Highlight", p.Character).Name = "EspHighlight"
+                local h = Instance.new("Highlight", p.Character)
+                h.Name = "EspHighlight"
+                h.FillColor = Color3.new(1, 0, 0)
             end
         end
     end
     if aimbotLigado and not killAuraLigado then
         local alvo = obterAlvo()
         if alvo and alvo:FindFirstChild("Head") then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvo.Head.Position), suavidade)
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvo.Head.Position), 0.15)
         end
     end
 end)
