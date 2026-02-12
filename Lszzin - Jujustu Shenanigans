@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -8,35 +7,31 @@ local Camera = workspace.CurrentCamera
 local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
-local alcanceMaximo = 500 -- Aumentei para ele achar outros alvos longe
+local alcanceMaximo = 300 
 local suavidade = 0.15
 
--- Interface Yelzy Hub
-local screenGui = Instance.new("ScreenGui")
+-- Interface
+local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 screenGui.Name = "YelzyHub"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-local mainFrame = Instance.new("Frame")
+local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Size = UDim2.new(0, 260, 0, 200)
 mainFrame.Position = UDim2.new(0.5, -130, 0.5, -100)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
-mainFrame.Parent = screenGui
 
-local titleBar = Instance.new("TextLabel")
+local titleBar = Instance.new("TextLabel", mainFrame)
 titleBar.Size = UDim2.new(1, 0, 0, 30)
 titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-titleBar.Text = "Yelzy Hub"
+titleBar.Text = "Yelzy Hub V2"
 titleBar.TextColor3 = Color3.new(1, 1, 1)
 titleBar.Font = Enum.Font.SourceSansBold
 titleBar.TextSize = 18
-titleBar.Parent = mainFrame
 
 local function criarBotao(nome, pos)
-    local btn = Instance.new("TextButton")
+    local btn = Instance.new("TextButton", mainFrame)
     btn.Size = UDim2.new(0.9, 0, 0, 40)
     btn.Position = UDim2.new(0.05, 0, 0, pos)
     btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -44,16 +39,13 @@ local function criarBotao(nome, pos)
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.SourceSans
     btn.TextSize = 17
-    btn.BorderSizePixel = 0
-    btn.Parent = mainFrame
     return btn
 end
 
 local btnEsp = criarBotao("ESP", 40)
 local btnAim = criarBotao("Aimbot", 90)
-local btnKill = criarBotao("Kill Aura (Auto-Switch)", 140)
+local btnKill = criarBotao("Kill Aura TP", 140)
 
--- Função para achar o inimigo mais próximo
 local function obterAlvo()
     local alvoProx, menorDist = nil, alcanceMaximo
     for _, p in pairs(Players:GetPlayers()) do
@@ -72,29 +64,28 @@ local function obterAlvo()
     return alvoProx
 end
 
--- Loop de Ataque e Habilidades
+-- Loop de Ataque
 task.spawn(function()
-    while task.wait() do
+    while true do
+        task.wait()
         if killAuraLigado then
             local alvo = obterAlvo()
-            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                local meuRoot = LocalPlayer.Character.HumanoidRootPart
+            if alvo and LocalPlayer.Character then
+                local meuRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
-                local alvoHum = alvo:FindFirstChild("Humanoid")
-
-                if alvoRoot and alvoHum and alvoHum.Health > 0 then
-                    -- Gruda no Alvo (Atrás dele)
+                
+                if meuRoot and alvoRoot then
+                    -- Teleporte Suave Atrás
+                    meuRoot.Velocity = Vector3.new(0,0,0) -- Para a inércia pra não deslizar
                     meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 0, 3)
                     
-                    -- Ataque de Click
+                    -- Cliques e Skills
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                     VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-
-                    -- Spam de Habilidades com micro-delay para o jogo aceitar
-                    local keys = {Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}
-                    for _, key in ipairs(keys) do
+                    
+                    for _, key in ipairs({Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}) do
                         VirtualInputManager:SendKeyEvent(true, key, false, game)
-                        task.wait(0.05)
+                        task.wait(0.02)
                         VirtualInputManager:SendKeyEvent(false, key, false, game)
                     end
                 end
@@ -103,40 +94,37 @@ task.spawn(function()
     end
 end)
 
--- Botões
+btnKill.MouseButton1Click:Connect(function()
+    killAuraLigado = not killAuraLigado
+    btnKill.Text = "Kill Aura: " .. (killAuraLigado and "ON" or "OFF")
+    btnKill.TextColor3 = killAuraLigado and Color3.new(1, 0, 0) or Color3.fromRGB(200, 200, 200)
+    
+    if not killAuraLigado and LocalPlayer.Character then
+        -- Reset de velocidade ao desligar para conseguir andar
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then root.Velocity = Vector3.new(0,0,0) end
+    end
+end)
+
+-- Restante (ESP/Aim)
 btnEsp.MouseButton1Click:Connect(function()
     espLigado = not espLigado
     btnEsp.Text = "ESP: " .. (espLigado and "ON" or "OFF")
-    btnEsp.TextColor3 = espLigado and Color3.new(0, 1, 0) or Color3.fromRGB(200, 200, 200)
 end)
 
 btnAim.MouseButton1Click:Connect(function()
     aimbotLigado = not aimbotLigado
     btnAim.Text = "Aimbot: " .. (aimbotLigado and "ON" or "OFF")
-    btnAim.TextColor3 = aimbotLigado and Color3.new(0, 1, 0) or Color3.fromRGB(200, 200, 200)
 end)
 
-btnKill.MouseButton1Click:Connect(function()
-    killAuraLigado = not killAuraLigado
-    btnKill.Text = "Kill Aura: " .. (killAuraLigado and "ON" or "OFF")
-    btnKill.TextColor3 = killAuraLigado and Color3.new(1, 0, 0) or Color3.fromRGB(200, 200, 200)
-end)
-
--- ESP e Aimbot Visuais
 RunService.RenderStepped:Connect(function()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local h = player.Character:FindFirstChild("EspHighlight")
-            if espLigado then
-                if not h then
-                    h = Instance.new("Highlight", player.Character)
-                    h.Name = "EspHighlight"
-                    h.FillColor = Color3.new(1, 0, 0)
-                end
-            elseif h then h:Destroy() end
+    if espLigado then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and not p.Character:FindFirstChild("EspHighlight") then
+                Instance.new("Highlight", p.Character).Name = "EspHighlight"
+            end
         end
     end
-
     if aimbotLigado and not killAuraLigado then
         local alvo = obterAlvo()
         if alvo and alvo:FindFirstChild("Head") then
