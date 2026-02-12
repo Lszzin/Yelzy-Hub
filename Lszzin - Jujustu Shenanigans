@@ -1,15 +1,14 @@
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local VirtualInputManager = game:GetService("VirtualInputManager") -- Para simular cliques e teclas
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
-local alcanceMaximo = 100
+local alcanceMaximo = 500 -- Aumentei para ele achar outros alvos longe
 local suavidade = 0.15
 
 -- Interface Yelzy Hub
@@ -19,7 +18,7 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 260, 0, 200) -- Aumentei um pouco a altura para o novo botão
+mainFrame.Size = UDim2.new(0, 260, 0, 200)
 mainFrame.Position = UDim2.new(0.5, -130, 0.5, -100)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
@@ -52,7 +51,7 @@ end
 
 local btnEsp = criarBotao("ESP", 40)
 local btnAim = criarBotao("Aimbot", 90)
-local btnKill = criarBotao("Kill Aura TP", 140)
+local btnKill = criarBotao("Kill Aura (Auto-Switch)", 140)
 
 -- Função para achar o inimigo mais próximo
 local function obterAlvo()
@@ -63,7 +62,7 @@ local function obterAlvo()
             local hum = p.Character:FindFirstChild("Humanoid")
             if root and hum and hum.Health > 0 then
                 local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                if dist <= menorDist then
+                if dist < menorDist then
                     menorDist = dist
                     alvoProx = p.Character
                 end
@@ -73,40 +72,38 @@ local function obterAlvo()
     return alvoProx
 end
 
--- Lógica do Kill Aura (TP + Spam)
-RunService.Heartbeat:Connect(function()
-    if killAuraLigado then
-        local alvo = obterAlvo()
-        if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local meuRoot = LocalPlayer.Character.HumanoidRootPart
-            local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
-            local alvoHum = alvo:FindFirstChild("Humanoid")
+-- Loop de Ataque e Habilidades
+task.spawn(function()
+    while task.wait() do
+        if killAuraLigado then
+            local alvo = obterAlvo()
+            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local meuRoot = LocalPlayer.Character.HumanoidRootPart
+                local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
+                local alvoHum = alvo:FindFirstChild("Humanoid")
 
-            if alvoRoot and alvoHum and alvoHum.Health > 0 then
-                -- Teleporta para trás do jogador (3 studs de distância)
-                meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 0, 3)
-                
-                -- Simula Clique (Ataque Básico)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                if alvoRoot and alvoHum and alvoHum.Health > 0 then
+                    -- Gruda no Alvo (Atrás dele)
+                    meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 0, 3)
+                    
+                    -- Ataque de Click
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 
-                -- Spam de Habilidades (Z, X, C, V)
-                local keys = {Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}
-                for _, key in ipairs(keys) do
-                    VirtualInputManager:SendKeyEvent(true, key, false, game)
-                    VirtualInputManager:SendKeyEvent(false, key, false, game)
+                    -- Spam de Habilidades com micro-delay para o jogo aceitar
+                    local keys = {Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}
+                    for _, key in ipairs(keys) do
+                        VirtualInputManager:SendKeyEvent(true, key, false, game)
+                        task.wait(0.05)
+                        VirtualInputManager:SendKeyEvent(false, key, false, game)
+                    end
                 end
-            else
-                -- Se o alvo morreu, desliga automaticamente
-                killAuraLigado = false
-                btnKill.Text = "Kill Aura TP: OFF"
-                btnKill.TextColor3 = Color3.fromRGB(200, 200, 200)
             end
         end
     end
 end)
 
--- Eventos dos Botões
+-- Botões
 btnEsp.MouseButton1Click:Connect(function()
     espLigado = not espLigado
     btnEsp.Text = "ESP: " .. (espLigado and "ON" or "OFF")
@@ -121,13 +118,12 @@ end)
 
 btnKill.MouseButton1Click:Connect(function()
     killAuraLigado = not killAuraLigado
-    btnKill.Text = "Kill Aura TP: " .. (killAuraLigado and "ON" or "OFF")
+    btnKill.Text = "Kill Aura: " .. (killAuraLigado and "ON" or "OFF")
     btnKill.TextColor3 = killAuraLigado and Color3.new(1, 0, 0) or Color3.fromRGB(200, 200, 200)
 end)
 
--- ESP e Aimbot continuam funcionando
+-- ESP e Aimbot Visuais
 RunService.RenderStepped:Connect(function()
-    -- ESP
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local h = player.Character:FindFirstChild("EspHighlight")
@@ -140,7 +136,7 @@ RunService.RenderStepped:Connect(function()
             elseif h then h:Destroy() end
         end
     end
-    -- Aimbot Suave
+
     if aimbotLigado and not killAuraLigado then
         local alvo = obterAlvo()
         if alvo and alvo:FindFirstChild("Head") then
