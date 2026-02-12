@@ -1,106 +1,45 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local ChaveCorreta = "YELZY-FREE-2024"
+local LinkRaw = "https://raw.githubusercontent.com/Lszzin/Teste-script/main/Lszzin%20-%20Jujustu%20Shenanigans"
 
-local aimbotLigado = false
-local espLigado = false
-local alcanceMaximo = 100
-local suavidade = 0.15
+local screenGui = Instance.new("ScreenGui", game.Players.LocalPlayer:WaitForChild("PlayerGui"))
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 300, 0, 160)
+frame.Position = UDim2.new(0.5, -150, 0.5, -80)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "LszzinHub"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+title.Text = "Yelzy Hub - Key System"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 18
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 260, 0, 150)
-mainFrame.Position = UDim2.new(0.5, -130, 0.5, -75)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Parent = screenGui
+local textBox = Instance.new("TextBox", frame)
+textBox.Size = UDim2.new(0.8, 0, 0, 35)
+textBox.Position = UDim2.new(0.1, 0, 0.35, 0)
+textBox.PlaceholderText = "Insira a Key..."
+textBox.Text = ""
+textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+textBox.TextColor3 = Color3.new(1, 1, 1)
 
-local titleBar = Instance.new("TextLabel")
-titleBar.Size = UDim2.new(1, 0, 0, 30)
-titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-titleBar.Text = "Jujutsu Shenanigans - Lszzin"
-titleBar.TextColor3 = Color3.new(1, 1, 1)
-titleBar.Font = Enum.Font.SourceSans
-titleBar.TextSize = 17
-titleBar.Parent = mainFrame
+local btn = Instance.new("TextButton", frame)
+btn.Size = UDim2.new(0.8, 0, 0, 35)
+btn.Position = UDim2.new(0.1, 0, 0.7, 0)
+btn.Text = "Verificar"
+btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+btn.TextColor3 = Color3.new(1, 1, 1)
 
-local function criarBotao(nome, pos)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.9, 0, 0, 40)
-    btn.Position = UDim2.new(0.05, 0, 0, pos)
-    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    btn.Text = nome .. ": OFF"
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 19
-    btn.BorderSizePixel = 0
-    btn.Parent = mainFrame
-    return btn
-end
-
-local btnEsp = criarBotao("ESP", 40)
-local btnAim = criarBotao("Aimbot", 90)
-
-local function atualizarESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local h = player.Character:FindFirstChild("EspHighlight")
-            if espLigado then
-                if not h then
-                    h = Instance.new("Highlight")
-                    h.Name = "EspHighlight"
-                    h.FillColor = Color3.new(1, 0, 0)
-                    h.Parent = player.Character
-                end
-            elseif h then h:Destroy() end
-        end
-    end
-end
-
-local function obterAlvo()
-    local alvoProx, menorDist = nil, alcanceMaximo
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local head = p.Character:FindFirstChild("Head")
-            local hum = p.Character:FindFirstChild("Humanoid")
-            if head and hum and hum.Health > 0 then
-                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - head.Position).Magnitude
-                if dist <= menorDist then
-                    menorDist = dist
-                    alvoProx = head
-                end
-            end
-        end
-    end
-    return alvoProx
-end
-
-btnEsp.MouseButton1Click:Connect(function()
-    espLigado = not espLigado
-    btnEsp.Text = "ESP: " .. (espLigado and "ON" or "OFF")
-    btnEsp.TextColor3 = espLigado and Color3.new(0, 1, 0) or Color3.fromRGB(200, 200, 200)
-end)
-
-btnAim.MouseButton1Click:Connect(function()
-    aimbotLigado = not aimbotLigado
-    btnAim.Text = "Aimbot: " .. (aimbotLigado and "ON" or "OFF")
-    btnAim.TextColor3 = aimbotLigado and Color3.new(0, 1, 0) or Color3.fromRGB(200, 200, 200)
-end)
-
-RunService.RenderStepped:Connect(function()
-    atualizarESP()
-    if aimbotLigado then
-        local alvo = obterAlvo()
-        if alvo then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvo.Position), suavidade)
-        end
+btn.MouseButton1Click:Connect(function()
+    if textBox.Text == ChaveCorreta then
+        screenGui:Destroy()
+        loadstring(game:HttpGet(LinkRaw))()
+    else
+        btn.Text = "CHAVE INVÁLIDA"
+        btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        task.wait(2)
+        btn.Text = "Verificar"
+        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     end
 end)
