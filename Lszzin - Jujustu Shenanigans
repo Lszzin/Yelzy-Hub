@@ -1,22 +1,26 @@
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager") -- Para simular cliques e teclas
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 local aimbotLigado = false
 local espLigado = false
+local killAuraLigado = false
 local alcanceMaximo = 100
 local suavidade = 0.15
 
+-- Interface Yelzy Hub
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "YelzyHub"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 260, 0, 150)
-mainFrame.Position = UDim2.new(0.5, -130, 0.5, -75)
+mainFrame.Size = UDim2.new(0, 260, 0, 200) -- Aumentei um pouco a altura para o novo botão
+mainFrame.Position = UDim2.new(0.5, -130, 0.5, -100)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -40,7 +44,7 @@ local function criarBotao(nome, pos)
     btn.Text = nome .. ": OFF"
     btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 19
+    btn.TextSize = 17
     btn.BorderSizePixel = 0
     btn.Parent = mainFrame
     return btn
@@ -48,37 +52,20 @@ end
 
 local btnEsp = criarBotao("ESP", 40)
 local btnAim = criarBotao("Aimbot", 90)
+local btnKill = criarBotao("Kill Aura TP", 140)
 
-local function atualizarESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local highlight = player.Character:FindFirstChild("EspHighlight")
-            if espLigado then
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "EspHighlight"
-                    highlight.FillColor = Color3.new(1, 0, 0)
-                    highlight.OutlineColor = Color3.new(1, 1, 1)
-                    highlight.Parent = player.Character
-                end
-            elseif highlight then
-                highlight:Destroy()
-            end
-        end
-    end
-end
-
+-- Função para achar o inimigo mais próximo
 local function obterAlvo()
     local alvoProx, menorDist = nil, alcanceMaximo
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
-            local head = p.Character:FindFirstChild("Head")
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
             local hum = p.Character:FindFirstChild("Humanoid")
-            if head and hum and hum.Health > 0 then
-                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - head.Position).Magnitude
+            if root and hum and hum.Health > 0 then
+                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude
                 if dist <= menorDist then
                     menorDist = dist
-                    alvoProx = head
+                    alvoProx = p.Character
                 end
             end
         end
@@ -86,6 +73,40 @@ local function obterAlvo()
     return alvoProx
 end
 
+-- Lógica do Kill Aura (TP + Spam)
+RunService.Heartbeat:Connect(function()
+    if killAuraLigado then
+        local alvo = obterAlvo()
+        if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local meuRoot = LocalPlayer.Character.HumanoidRootPart
+            local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
+            local alvoHum = alvo:FindFirstChild("Humanoid")
+
+            if alvoRoot and alvoHum and alvoHum.Health > 0 then
+                -- Teleporta para trás do jogador (3 studs de distância)
+                meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 0, 3)
+                
+                -- Simula Clique (Ataque Básico)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+
+                -- Spam de Habilidades (Z, X, C, V)
+                local keys = {Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}
+                for _, key in ipairs(keys) do
+                    VirtualInputManager:SendKeyEvent(true, key, false, game)
+                    VirtualInputManager:SendKeyEvent(false, key, false, game)
+                end
+            else
+                -- Se o alvo morreu, desliga automaticamente
+                killAuraLigado = false
+                btnKill.Text = "Kill Aura TP: OFF"
+                btnKill.TextColor3 = Color3.fromRGB(200, 200, 200)
+            end
+        end
+    end
+end)
+
+-- Eventos dos Botões
 btnEsp.MouseButton1Click:Connect(function()
     espLigado = not espLigado
     btnEsp.Text = "ESP: " .. (espLigado and "ON" or "OFF")
@@ -98,12 +119,32 @@ btnAim.MouseButton1Click:Connect(function()
     btnAim.TextColor3 = aimbotLigado and Color3.new(0, 1, 0) or Color3.fromRGB(200, 200, 200)
 end)
 
+btnKill.MouseButton1Click:Connect(function()
+    killAuraLigado = not killAuraLigado
+    btnKill.Text = "Kill Aura TP: " .. (killAuraLigado and "ON" or "OFF")
+    btnKill.TextColor3 = killAuraLigado and Color3.new(1, 0, 0) or Color3.fromRGB(200, 200, 200)
+end)
+
+-- ESP e Aimbot continuam funcionando
 RunService.RenderStepped:Connect(function()
-    atualizarESP()
-    if aimbotLigado then
+    -- ESP
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local h = player.Character:FindFirstChild("EspHighlight")
+            if espLigado then
+                if not h then
+                    h = Instance.new("Highlight", player.Character)
+                    h.Name = "EspHighlight"
+                    h.FillColor = Color3.new(1, 0, 0)
+                end
+            elseif h then h:Destroy() end
+        end
+    end
+    -- Aimbot Suave
+    if aimbotLigado and not killAuraLigado then
         local alvo = obterAlvo()
-        if alvo then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvo.Position), suavidade)
+        if alvo and alvo:FindFirstChild("Head") then
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvo.Head.Position), suavidade)
         end
     end
 end)
