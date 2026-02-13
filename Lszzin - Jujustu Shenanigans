@@ -11,20 +11,22 @@ local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
 local menuVisivel = true
-local alvoTravado = nil -- Guarda o alvo atual para não ficar pulando
+local alvoTravado = nil 
 
 -- IDs DOS JOGOS
 local ID_JUJUTSU = 9391468976
 local ID_FLICK = 136801880565837
+local ID_STRONGEST = 10449761463
 
 local eJujutsu = (PlaceId == ID_JUJUTSU)
 local eFlick = (PlaceId == ID_FLICK)
+local eStrongest = (PlaceId == ID_STRONGEST)
 
 -- ==========================================
--- INTERFACE
+-- INTERFACE (ESTILO JUJUTSU)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V12"
+screenGui.Name = "YelzyHub_V13"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -39,10 +41,14 @@ mainFrame.Draggable = true
 local title = Instance.new("TextLabel", mainFrame)
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
-title.Text = eJujutsu and "Yelzy Hub / Jujutsu" or "Yelzy Hub / [FPS] Passeio"
 title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.SourceSans
+title.Font = Enum.Font.SourceSansBold
 title.TextSize = 14
+
+-- Título Dinâmico
+if eJujutsu then title.Text = "Yelzy Hub - Jujutsu Shenanigans"
+elseif eStrongest then title.Text = "Yelzy Hub - The Strongest Battlegrounds"
+else title.Text = "Yelzy Hub - [FPS] Flick" end
 
 local list = Instance.new("UIListLayout", mainFrame)
 list.Padding = UDim.new(0, 5)
@@ -62,11 +68,15 @@ local function criarBotao(nome)
     return btn, stroke
 end
 
-local nomeAimbot = eJujutsu and "Aimbot Skill and Punches" or "Aimbot Gun/Knive"
-local btnAim, strokeAim = criarBotao(nomeAimbot)
+-- Configuração dos Botões por Jogo
+local textoAimbot = (eFlick or eStrongest) and "Aimbot + AutoShoot" or "Aimbot Skill and Punches"
+local btnAim, strokeAim = criarBotao(textoAimbot)
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
-if eJujutsu then btnKill, strokeKill = criarBotao("Kill aura + Aimbot") end
+
+if eJujutsu or eStrongest then
+    btnKill, strokeKill = criarBotao("Kill aura + Aimbot")
+end
 
 local function alternarVisual(btn, stroke, ativo)
     btn.Size = ativo and UDim2.new(0.95, 0, 0, 45) or UDim2.new(0.9, 0, 0, 40)
@@ -74,36 +84,25 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- LÓGICA DE VISIBILIDADE E TRAVA
+-- LÓGICA CORE (VISIBILIDADE E TRAVA)
 -- ==========================================
 
 local function estaVisivel(p_char)
     if not p_char or not p_char:FindFirstChild("HumanoidRootPart") then return false end
-    
-    local char = LocalPlayer.Character
-    if not char then return false end
-    
-    -- Raycast para checar se há parede entre a câmera e o alvo
     local rayParam = RaycastParams.new()
     rayParam.FilterType = Enum.RaycastFilterType.Exclude
-    rayParam.FilterDescendantsInstances = {char, p_char, Camera}
-    
+    rayParam.FilterDescendantsInstances = {LocalPlayer.Character, p_char, Camera}
     local direcao = p_char.HumanoidRootPart.Position - Camera.CFrame.Position
     local resultado = workspace:Raycast(Camera.CFrame.Position, direcao, rayParam)
-    
-    if resultado then
-        return false -- Tem parede no caminho
-    end
-    return true -- Caminho limpo
+    return resultado == nil
 end
 
 local function obterAlvo()
-    -- Se já temos um alvo, ele ainda está vivo e visível?
+    -- Lógica Flick/Strongest: Não solta o alvo até morrer ou sumir
     if alvoTravado and alvoTravado:FindFirstChild("Humanoid") and alvoTravado.Humanoid.Health > 0 and estaVisivel(alvoTravado) then
         return alvoTravado
     end
 
-    -- Se não, procura um novo alvo visível mais próximo
     local novoAlvo, menorDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
@@ -120,7 +119,10 @@ local function obterAlvo()
     return novoAlvo
 end
 
--- RenderStepped: Travamento de Mira
+-- ==========================================
+-- LOOPS DE FUNCIONAMENTO
+-- ==========================================
+
 RunService.RenderStepped:Connect(function()
     -- ESP
     if espLigado then
@@ -134,22 +136,29 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- AIMBOT (Com trava de alvo e check de parede)
+    -- Aimbot Estilo FPS (Trava e não solta)
     if aimbotLigado then
         local alvo = obterAlvo()
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
+            
+            -- Auto-Shoot para jogos de combate/tiro
+            if eFlick or eStrongest then
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.02)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end
         end
     else
         alvoTravado = nil
     end
 end)
 
--- Loop Kill Aura (Jujutsu)
+-- Kill Aura (Teleporte para Jujutsu e Strongest)
 task.spawn(function()
     while true do
         task.wait()
-        if killAuraLigado and eJujutsu then
+        if killAuraLigado and (eJujutsu or eStrongest) then
             local alvo = obterAlvo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame
@@ -161,7 +170,7 @@ task.spawn(function()
     end
 end)
 
--- Botão Minimizar Mobile
+-- Botão Minimizar (Mobile)
 local minBtn = Instance.new("TextButton", screenGui)
 minBtn.Size = UDim2.new(0, 40, 0, 40)
 minBtn.Position = UDim2.new(0, 5, 0, 50)
@@ -173,7 +182,7 @@ minBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = menuVisivel
 end)
 
--- Eventos
+-- Eventos de Clique
 btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado alternarVisual(btnAim, strokeAim, aimbotLigado) end)
 btnEsp.MouseButton1Click:Connect(function() espLigado = not espLigado alternarVisual(btnEsp, strokeEsp, espLigado) end)
 if btnKill then
