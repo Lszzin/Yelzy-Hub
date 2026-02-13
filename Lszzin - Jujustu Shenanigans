@@ -23,7 +23,7 @@ local eFlick = (PlaceId == ID_FLICK)
 -- INTERFACE (MOBILE FRIENDLY)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V9"
+screenGui.Name = "YelzyHub_V10"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -61,7 +61,7 @@ local function criarBotao(nome)
     return btn, stroke
 end
 
-local btnAim, strokeAim = criarBotao(eFlick and "Sky Aimbot + AutoShoot" or "Aimbot Skill")
+local btnAim, strokeAim = criarBotao(eFlick and "God View + AutoShoot" or "Aimbot Skill")
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
 if eJujutsu then btnKill, strokeKill = criarBotao("Kill aura TP") end
@@ -72,14 +72,16 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- LÓGICA DE ALVO (SEM LIMITE DE DISTÂNCIA)
+-- LÓGICA DE ALVO (SEM LIMITE)
 -- ==========================================
 
 local function obterProximo()
-    local alvo, menorDist = nil, math.huge -- "math.huge" remove o limite de distância
+    local alvo, menorDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
             if p.Character.Humanoid.Health > 0 then
+                -- No God View, focamos no mais próximo da mira para ser mais rápido
+                local pos, naTela = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
                 local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
                 if dist < menorDist then
                     menorDist = dist
@@ -91,27 +93,29 @@ local function obterProximo()
     return alvo
 end
 
--- Loop de Sky Mod e Auto-Shoot (Exclusivo FPS Passeio)
+-- Loop de God View (Ficar no céu do mapa atirando)
 task.spawn(function()
     while true do
         RunService.Heartbeat:Wait()
         if aimbotLigado and eFlick then
-            local alvo = obterProximo()
-            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 local meuRoot = LocalPlayer.Character.HumanoidRootPart
-                local alvoRoot = alvo.HumanoidRootPart
                 
-                -- Teleporte para o alto (Sky Mod)
+                -- Teleporta para o ponto mais alto do centro do mapa (Y = 150 ou 200)
+                -- Mantemos o X e Z originais ou podemos fixar no centro 0, 150, 0
                 meuRoot.Velocity = Vector3.new(0,0,0)
-                meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 20, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+                meuRoot.CFrame = CFrame.new(meuRoot.Position.X, 150, meuRoot.Position.Z)
                 
-                -- Mira trava 100% no inimigo
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvoRoot.Position)
-                
-                -- Disparo Automático
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.05)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                local alvo = obterProximo()
+                if alvo and alvo:FindFirstChild("HumanoidRootPart") then
+                    -- Mira no inimigo lá embaixo
+                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
+                    
+                    -- Atira sem parar
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                    task.wait(0.05)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                end
             end
         end
     end
@@ -124,9 +128,7 @@ task.spawn(function()
         if killAuraLigado and eJujutsu then
             local alvo = obterProximo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                local meuRoot = LocalPlayer.Character.HumanoidRootPart
-                meuRoot.CFrame = alvo.HumanoidRootPart.CFrame
-                
+                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.01)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -135,7 +137,7 @@ task.spawn(function()
     end
 end)
 
--- RenderStepped: ESP e Travamento de Câmera
+-- RenderStepped: ESP
 RunService.RenderStepped:Connect(function()
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
@@ -149,7 +151,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Botão de Minimizar (Mobile)
+-- Botão Minimizar Mobile
 local minBtn = Instance.new("TextButton", screenGui)
 minBtn.Size = UDim2.new(0, 40, 0, 40)
 minBtn.Position = UDim2.new(0, 5, 0, 50)
@@ -161,7 +163,7 @@ minBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = menuVisivel
 end)
 
--- Eventos de Botão
+-- Eventos
 btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado alternarVisual(btnAim, strokeAim, aimbotLigado) end)
 btnEsp.MouseButton1Click:Connect(function() espLigado = not espLigado alternarVisual(btnEsp, strokeEsp, espLigado) end)
 if btnKill then
