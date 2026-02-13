@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local PlaceId = game.PlaceId
@@ -23,10 +22,10 @@ local eFlick = (PlaceId == ID_FLICK)
 local eStrongest = (PlaceId == ID_STRONGEST)
 
 -- ==========================================
--- INTERFACE (ESTILO JUJUTSU)
+-- INTERFACE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V13"
+screenGui.Name = "YelzyHub_V14"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -45,7 +44,6 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 14
 
--- Título Dinâmico
 if eJujutsu then title.Text = "Yelzy Hub - Jujutsu Shenanigans"
 elseif eStrongest then title.Text = "Yelzy Hub - The Strongest Battlegrounds"
 else title.Text = "Yelzy Hub - [FPS] Flick" end
@@ -68,14 +66,11 @@ local function criarBotao(nome)
     return btn, stroke
 end
 
--- Configuração dos Botões por Jogo
-local textoAimbot = (eFlick or eStrongest) and "Aimbot + AutoShoot" or "Aimbot Skill and Punches"
-local btnAim, strokeAim = criarBotao(textoAimbot)
+local btnAim, strokeAim = criarBotao("Aimbot + Auto Shoot")
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
-
 if eJujutsu or eStrongest then
-    btnKill, strokeKill = criarBotao("Kill aura + Aimbot")
+    btnKill, strokeKill = criarBotao("Kill Aura (TP + Hit)")
 end
 
 local function alternarVisual(btn, stroke, ativo)
@@ -84,7 +79,7 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- LÓGICA CORE (VISIBILIDADE E TRAVA)
+-- FUNÇÕES DE APOIO
 -- ==========================================
 
 local function estaVisivel(p_char)
@@ -98,11 +93,9 @@ local function estaVisivel(p_char)
 end
 
 local function obterAlvo()
-    -- Lógica Flick/Strongest: Não solta o alvo até morrer ou sumir
     if alvoTravado and alvoTravado:FindFirstChild("Humanoid") and alvoTravado.Humanoid.Health > 0 and estaVisivel(alvoTravado) then
         return alvoTravado
     end
-
     local novoAlvo, menorDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
@@ -120,7 +113,7 @@ local function obterAlvo()
 end
 
 -- ==========================================
--- LOOPS DE FUNCIONAMENTO
+-- LOOPS (CORRIGIDOS PARA NÃO TRAVAR ANDAR)
 -- ==========================================
 
 RunService.RenderStepped:Connect(function()
@@ -136,32 +129,35 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Aimbot Estilo FPS (Trava e não solta)
+    -- AIMBOT + AUTO SHOOT (Apenas Câmera para não travar movimento)
     if aimbotLigado then
         local alvo = obterAlvo()
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
+            -- Suavização de mira para não parecer robótico e não bugar a câmera
+            local targetPos = alvo.HumanoidRootPart.Position
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
             
-            -- Auto-Shoot para jogos de combate/tiro
-            if eFlick or eStrongest then
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.02)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            end
+            -- Clique automático (Funciona para Tiros e Socos)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            task.wait(0.03) -- Pequeno delay para o jogo registrar
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
         end
     else
         alvoTravado = nil
     end
 end)
 
--- Kill Aura (Teleporte para Jujutsu e Strongest)
+-- KILL AURA (Teleporte + Bater Automático)
 task.spawn(function()
     while true do
         task.wait()
         if killAuraLigado and (eJujutsu or eStrongest) then
             local alvo = obterAlvo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame
+                -- Teleporte: Gruda levemente atrás/lado para não bugar a colisão e deixar você andar
+                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
+                
+                -- Bater (Spam de cliques)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.01)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -182,7 +178,6 @@ minBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = menuVisivel
 end)
 
--- Eventos de Clique
 btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado alternarVisual(btnAim, strokeAim, aimbotLigado) end)
 btnEsp.MouseButton1Click:Connect(function() espLigado = not espLigado alternarVisual(btnEsp, strokeEsp, espLigado) end)
 if btnKill then
