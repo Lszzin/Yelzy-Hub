@@ -24,7 +24,7 @@ local eFlick = (PlaceId == ID_FLICK)
 -- INTERFACE CUSTOMIZADA
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V5"
+screenGui.Name = "YelzyHub_V6"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -43,13 +43,13 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSans
 title.TextSize = 14
 
--- Título Dinâmico baseado no ID correto
+-- Título Dinâmico
 if eJujutsu then
     title.Text = "Yelzy Hub / Jujutsu Shenanigans"
 elseif eFlick then
     title.Text = "Yelzy Hub / [FPS] Passeio"
 else
-    title.Text = "Yelzy Hub / Jogo não detectado"
+    title.Text = "Yelzy Hub / Desconhecido"
 end
 
 local list = Instance.new("UIListLayout", mainFrame)
@@ -71,11 +71,17 @@ local function criarBotao(nome)
     return btn, stroke
 end
 
-local btnAim, strokeAim = criarBotao("Aimbot Gun/Knive")
+-- NOMES DINÂMICOS DOS BOTÕES
+local textoAimbot = "Aimbot Gun/Knive" -- Padrão para FPS
+if eJujutsu then
+    textoAimbot = "Aimbot Skill and Punches"
+end
+
+local btnAim, strokeAim = criarBotao(textoAimbot)
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
 
--- Botão Kill Aura só aparece no Jujutsu
+-- Botão Kill Aura (Exclusivo Jujutsu)
 if eJujutsu then
     btnKill, strokeKill = criarBotao("Kill aura + Aimbot")
 end
@@ -91,7 +97,7 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- LÓGICA DE JOGO
+-- LÓGICA DE FUNCIONAMENTO
 -- ==========================================
 
 local function obterProximo()
@@ -105,7 +111,7 @@ local function obterProximo()
     return alvo
 end
 
--- Tecla INSERT para esconder menu
+-- Atalho para esconder o menu
 UserInputService.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.Insert then
         menuVisivel = not menuVisivel
@@ -124,7 +130,7 @@ task.spawn(function()
                 local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
                 
                 meuRoot.Velocity = Vector3.new(0,0,0)
-                meuRoot.CFrame = alvoRoot.CFrame -- DENTRO DO PLAYER
+                meuRoot.CFrame = alvoRoot.CFrame -- Dentro do inimigo
                 
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -139,7 +145,7 @@ task.spawn(function()
     end
 end)
 
--- RenderStepped (ESP e Aimbot)
+-- RenderStepped (Câmera e ESP)
 RunService.RenderStepped:Connect(function()
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
@@ -160,7 +166,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Eventos de Clique
+-- Cliques
 btnAim.MouseButton1Click:Connect(function()
     aimbotLigado = not aimbotLigado
     alternarVisual(btnAim, strokeAim, aimbotLigado)
