@@ -4,7 +4,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local GameId = game.PlaceId
+local PlaceId = game.PlaceId
 
 -- Variáveis de Estado
 local aimbotLigado = false
@@ -12,15 +12,19 @@ local espLigado = false
 local killAuraLigado = false
 local menuVisivel = true
 
--- IDs Corretos
-local ID_FLICK = 15301648011
-local ID_JUJUTSU = 10403328512
+-- IDs ATUALIZADOS
+local ID_JUJUTSU = 9391468976
+local ID_FLICK = 136801880565837
+
+-- Verificação de Jogo
+local eJujutsu = (PlaceId == ID_JUJUTSU)
+local eFlick = (PlaceId == ID_FLICK)
 
 -- ==========================================
 -- INTERFACE CUSTOMIZADA
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_Final"
+screenGui.Name = "YelzyHub_V5"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -35,15 +39,18 @@ mainFrame.Draggable = true
 local title = Instance.new("TextLabel", mainFrame)
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
--- CORREÇÃO DO TÍTULO AQUI
-if GameId == ID_JUJUTSU then
-    title.Text = "Yelzy Hub / Jujutsu Shenanigans"
-else
-    title.Text = "Yelzy Hub / [FPS] Flick"
-end
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSans
 title.TextSize = 14
+
+-- Título Dinâmico baseado no ID correto
+if eJujutsu then
+    title.Text = "Yelzy Hub / Jujutsu Shenanigans"
+elseif eFlick then
+    title.Text = "Yelzy Hub / [FPS] Passeio"
+else
+    title.Text = "Yelzy Hub / Jogo não detectado"
+end
 
 local list = Instance.new("UIListLayout", mainFrame)
 list.Padding = UDim.new(0, 5)
@@ -68,8 +75,8 @@ local btnAim, strokeAim = criarBotao("Aimbot Gun/Knive")
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
 
--- Só cria o Kill Aura se for Jujutsu
-if GameId == ID_JUJUTSU then
+-- Botão Kill Aura só aparece no Jujutsu
+if eJujutsu then
     btnKill, strokeKill = criarBotao("Kill aura + Aimbot")
 end
 
@@ -84,13 +91,13 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- FUNÇÕES DE SUPORTE
+-- LÓGICA DE JOGO
 -- ==========================================
 
 local function obterProximo()
     local alvo, dist = nil, 1000
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.Humanoid.Health > 0 then
             local d = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
             if d < dist then dist = d alvo = p.Character end
         end
@@ -98,7 +105,7 @@ local function obterProximo()
     return alvo
 end
 
--- Abrir/Fechar com a tecla INSERT
+-- Tecla INSERT para esconder menu
 UserInputService.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.Insert then
         menuVisivel = not menuVisivel
@@ -106,39 +113,34 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- ==========================================
--- LOOPS
--- ==========================================
-
+-- Loop Kill Aura (Jujutsu)
 task.spawn(function()
     while true do
         task.wait()
-        if killAuraLigado and GameId == ID_JUJUTSU then
+        if killAuraLigado and eJujutsu then
             local alvo = obterProximo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 local meuRoot = LocalPlayer.Character.HumanoidRootPart
                 local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
                 
-                if meuRoot and alvoRoot then
-                    meuRoot.Velocity = Vector3.new(0,0,0)
-                    -- DENTRO do player
-                    meuRoot.CFrame = alvoRoot.CFrame
-                    
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                    for _, k in ipairs({Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}) do
-                        VirtualInputManager:SendKeyEvent(true, k, false, game)
-                        task.wait(0.01)
-                        VirtualInputManager:SendKeyEvent(false, k, false, game)
-                    end
+                meuRoot.Velocity = Vector3.new(0,0,0)
+                meuRoot.CFrame = alvoRoot.CFrame -- DENTRO DO PLAYER
+                
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                
+                for _, k in ipairs({Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C, Enum.KeyCode.V}) do
+                    VirtualInputManager:SendKeyEvent(true, k, false, game)
+                    task.wait(0.01)
+                    VirtualInputManager:SendKeyEvent(false, k, false, game)
                 end
             end
         end
     end
 end)
 
+-- RenderStepped (ESP e Aimbot)
 RunService.RenderStepped:Connect(function()
-    -- ESP
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
@@ -150,8 +152,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- AIMBOT (Trava Total)
-    if aimbotLigado or (killAuraLigado and GameId == ID_JUJUTSU) then
+    if aimbotLigado or (killAuraLigado and eJujutsu) then
         local alvo = obterProximo()
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
@@ -159,7 +160,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Cliques
+-- Eventos de Clique
 btnAim.MouseButton1Click:Connect(function()
     aimbotLigado = not aimbotLigado
     alternarVisual(btnAim, strokeAim, aimbotLigado)
