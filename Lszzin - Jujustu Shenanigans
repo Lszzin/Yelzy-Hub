@@ -3,183 +3,192 @@ local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local PlaceId = game.PlaceId
 
--- Variáveis de Estado
+-- Configurações de Suavidade e Distância
+local Smoothness = 0.18 
+local DistanciaTP = 3.2 
+
+-- Variáveis de Controle
 local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
 local menuVisivel = true
-local alvoTravado = nil 
-
--- IDs DOS JOGOS
-local ID_JUJUTSU = 9391468976
-local ID_FLICK = 136801880565837
-local ID_STRONGEST = 10449761463
-
-local eJujutsu = (PlaceId == ID_JUJUTSU)
-local eFlick = (PlaceId == ID_FLICK)
-local eStrongest = (PlaceId == ID_STRONGEST)
+local alvoFixo = nil
 
 -- ==========================================
--- INTERFACE
+-- INTERFACE (YELZY HUB)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V14"
+screenGui.Name = "YelzyHub_V17"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
-mainFrame.Size = UDim2.new(0, 240, 0, 180)
+mainFrame.Size = UDim2.new(0, 230, 0, 200)
 mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-mainFrame.BorderSizePixel = 2
-mainFrame.BorderColor3 = Color3.fromRGB(200, 0, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
 
+local corner = Instance.new("UICorner", mainFrame)
+local stroke = Instance.new("UIStroke", mainFrame)
+stroke.Color = Color3.fromRGB(255, 0, 0)
+stroke.Thickness = 2
+
 local title = Instance.new("TextLabel", mainFrame)
-title.Size = UDim2.new(1, 0, 0, 30)
-title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Text = "Yelzy Hub"
 title.TextColor3 = Color3.new(1, 1, 1)
+title.BackgroundTransparency = 1
 title.Font = Enum.Font.SourceSansBold
-title.TextSize = 14
+title.TextSize = 18
 
-if eJujutsu then title.Text = "Yelzy Hub - Jujutsu Shenanigans"
-elseif eStrongest then title.Text = "Yelzy Hub - The Strongest Battlegrounds"
-else title.Text = "Yelzy Hub - [FPS] Flick" end
+local container = Instance.new("Frame", mainFrame)
+container.Size = UDim2.new(1, 0, 1, -40)
+container.Position = UDim2.new(0, 0, 0, 40)
+container.BackgroundTransparency = 1
 
-local list = Instance.new("UIListLayout", mainFrame)
-list.Padding = UDim.new(0, 5)
-list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+local layout = Instance.new("UIListLayout", container)
+layout.Padding = UDim.new(0, 10)
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local function criarBotao(nome)
-    local btn = Instance.new("TextButton", mainFrame)
+    local btn = Instance.new("TextButton", container)
     btn.Size = UDim2.new(0.9, 0, 0, 40)
     btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     btn.Text = nome
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 16
-    local stroke = Instance.new("UIStroke", btn)
-    stroke.Thickness = 0
-    stroke.Color = Color3.fromRGB(0, 255, 0)
-    return btn, stroke
+    btn.TextSize = 14
+    Instance.new("UICorner", btn)
+    local s = Instance.new("UIStroke", btn)
+    s.Thickness = 0
+    s.Color = Color3.fromRGB(255, 0, 0)
+    return btn, s
 end
 
-local btnAim, strokeAim = criarBotao("Aimbot + Auto Shoot")
-local btnEsp, strokeEsp = criarBotao("Esp Players")
-local btnKill, strokeKill
-if eJujutsu or eStrongest then
-    btnKill, strokeKill = criarBotao("Kill Aura (TP + Hit)")
-end
+local btnAim, sAim = criarBotao("Aimbot Punch and skill")
+local btnEsp, sEsp = criarBotao("Esp Players")
+local btnKill, sKill = criarBotao("Tp To Player atack (kill aura)")
 
-local function alternarVisual(btn, stroke, ativo)
-    btn.Size = ativo and UDim2.new(0.95, 0, 0, 45) or UDim2.new(0.9, 0, 0, 40)
-    stroke.Thickness = ativo and 2 or 0
+local function atualizarBotao(btn, s, cond)
+    s.Thickness = cond and 2 or 0
+    btn.BackgroundColor3 = cond and Color3.fromRGB(60, 0, 0) or Color3.fromRGB(30, 30, 30)
 end
 
 -- ==========================================
--- FUNÇÕES DE APOIO
+-- LÓGICA DE ALVO
 -- ==========================================
 
-local function estaVisivel(p_char)
-    if not p_char or not p_char:FindFirstChild("HumanoidRootPart") then return false end
-    local rayParam = RaycastParams.new()
-    rayParam.FilterType = Enum.RaycastFilterType.Exclude
-    rayParam.FilterDescendantsInstances = {LocalPlayer.Character, p_char, Camera}
-    local direcao = p_char.HumanoidRootPart.Position - Camera.CFrame.Position
-    local resultado = workspace:Raycast(Camera.CFrame.Position, direcao, rayParam)
-    return resultado == nil
+local function validarAlvo(char)
+    return char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 and char:FindFirstChild("HumanoidRootPart")
 end
 
-local function obterAlvo()
-    if alvoTravado and alvoTravado:FindFirstChild("Humanoid") and alvoTravado.Humanoid.Health > 0 and estaVisivel(alvoTravado) then
-        return alvoTravado
-    end
-    local novoAlvo, menorDist = nil, math.huge
+local function buscarNovoAlvo()
+    local alvo, menorDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
-            if p.Character.Humanoid.Health > 0 and estaVisivel(p.Character) then
-                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                if dist < menorDist then
-                    menorDist = dist
-                    novoAlvo = p.Character
-                end
+        if p ~= LocalPlayer and p.Character and validarAlvo(p.Character) then
+            local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if dist < menorDist then
+                menorDist = dist
+                alvo = p.Character
             end
         end
     end
-    alvoTravado = novoAlvo
-    return novoAlvo
+    return alvo
 end
 
 -- ==========================================
--- LOOPS (CORRIGIDOS PARA NÃO TRAVAR ANDAR)
+-- LOOPS DE EXECUÇÃO
 -- ==========================================
 
 RunService.RenderStepped:Connect(function()
-    -- ESP
+    -- ESP PLAYERS
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
-                local h = p.Character:FindFirstChild("EspHighlight") or Instance.new("Highlight", p.Character)
-                h.Name = "EspHighlight"
+                local h = p.Character:FindFirstChild("YelzyHighlight") or Instance.new("Highlight", p.Character)
+                h.Name = "YelzyHighlight"
                 h.FillColor = Color3.new(1, 0, 0)
                 h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             end
         end
     end
 
-    -- AIMBOT + AUTO SHOOT (Apenas Câmera para não travar movimento)
-    if aimbotLigado then
-        local alvo = obterAlvo()
-        if alvo and alvo:FindFirstChild("HumanoidRootPart") then
-            -- Suavização de mira para não parecer robótico e não bugar a câmera
-            local targetPos = alvo.HumanoidRootPart.Position
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
+    -- LÓGICA PRINCIPAL
+    if aimbotLigado or killAuraLigado then
+        -- Trava no alvo até ele morrer
+        if not alvoFixo or not validarAlvo(alvoFixo) then
+            alvoFixo = buscarNovoAlvo()
+        end
+
+        if alvoFixo then
+            local root = alvoFixo.HumanoidRootPart
             
-            -- Clique automático (Funciona para Tiros e Socos)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.03) -- Pequeno delay para o jogo registrar
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            -- Aimbot: Apenas move a câmera (Não trava o movimento do personagem)
+            local objetivoCFrame = CFrame.new(Camera.CFrame.Position, root.Position)
+            Camera.CFrame = Camera.CFrame:Lerp(objetivoCFrame, Smoothness)
+
+            -- Kill Aura: Move o personagem e ataca
+            if killAuraLigado then
+                local meuRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if meuRoot then
+                    -- Teleporte apenas se o Kill Aura estiver ligado
+                    meuRoot.CFrame = root.CFrame * CFrame.new(0, 0, DistanciaTP)
+                    
+                    -- Ataque Automático
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                    task.wait(0.01)
+                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                end
+            end
         end
     else
-        alvoTravado = nil
+        alvoFixo = nil
     end
 end)
 
--- KILL AURA (Teleporte + Bater Automático)
-task.spawn(function()
-    while true do
-        task.wait()
-        if killAuraLigado and (eJujutsu or eStrongest) then
-            local alvo = obterAlvo()
-            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                -- Teleporte: Gruda levemente atrás/lado para não bugar a colisão e deixar você andar
-                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame * CFrame.new(0, 0, 1)
-                
-                -- Bater (Spam de cliques)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.01)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+-- ==========================================
+-- EVENTOS
+-- ==========================================
+
+btnAim.MouseButton1Click:Connect(function()
+    aimbotLigado = not aimbotLigado
+    atualizarBotao(btnAim, sAim, aimbotLigado)
+end)
+
+btnEsp.MouseButton1Click:Connect(function()
+    espLigado = not espLigado
+    atualizarBotao(btnEsp, sEsp, espLigado)
+    if not espLigado then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("YelzyHighlight") then
+                p.Character.YelzyHighlight:Destroy()
             end
         end
     end
 end)
 
--- Botão Minimizar (Mobile)
-local minBtn = Instance.new("TextButton", screenGui)
-minBtn.Size = UDim2.new(0, 40, 0, 40)
-minBtn.Position = UDim2.new(0, 5, 0, 50)
-minBtn.Text = "Y"
-minBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-Instance.new("UICorner", minBtn)
-minBtn.MouseButton1Click:Connect(function()
+btnKill.MouseButton1Click:Connect(function()
+    killAuraLigado = not killAuraLigado
+    atualizarBotao(btnKill, sKill, killAuraLigado)
+    -- Ativa aimbot para ajudar nas skills durante o Kill Aura
+    if killAuraLigado then
+        aimbotLigado = true
+        atualizarBotao(btnAim, sAim, true)
+    end
+end)
+
+-- Botão Y (Mobile Minimizar)
+local yBtn = Instance.new("TextButton", screenGui)
+yBtn.Size = UDim2.new(0, 45, 0, 45)
+yBtn.Position = UDim2.new(0, 10, 0, 10)
+yBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+yBtn.Text = "Y"
+yBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UICorner", yBtn).CornerRadius = UDim.new(1, 0)
+
+yBtn.MouseButton1Click:Connect(function()
     menuVisivel = not menuVisivel
     mainFrame.Visible = menuVisivel
 end)
-
-btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado alternarVisual(btnAim, strokeAim, aimbotLigado) end)
-btnEsp.MouseButton1Click:Connect(function() espLigado = not espLigado alternarVisual(btnEsp, strokeEsp, espLigado) end)
-if btnKill then
-    btnKill.MouseButton1Click:Connect(function() killAuraLigado = not killAuraLigado alternarVisual(btnKill, strokeKill, killAuraLigado) end)
-end
