@@ -12,7 +12,7 @@ local espLigado = false
 local killAuraLigado = false
 local menuVisivel = true
 
--- IDs ATUALIZADOS
+-- IDs DOS JOGOS
 local ID_JUJUTSU = 9391468976
 local ID_FLICK = 136801880565837
 
@@ -20,15 +20,15 @@ local eJujutsu = (PlaceId == ID_JUJUTSU)
 local eFlick = (PlaceId == ID_FLICK)
 
 -- ==========================================
--- INTERFACE
+-- INTERFACE (MOBILE FRIENDLY)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V8"
+screenGui.Name = "YelzyHub_V9"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Size = UDim2.new(0, 240, 0, 180)
-mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0) -- Posição melhor para Mobile
+mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.BorderSizePixel = 2
 mainFrame.BorderColor3 = Color3.fromRGB(200, 0, 0)
@@ -61,7 +61,7 @@ local function criarBotao(nome)
     return btn, stroke
 end
 
-local btnAim, strokeAim = criarBotao(eJujutsu and "Aimbot Skill" or "Aimbot + AutoShoot")
+local btnAim, strokeAim = criarBotao(eFlick and "Sky Aimbot + AutoShoot" or "Aimbot Skill")
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
 if eJujutsu then btnKill, strokeKill = criarBotao("Kill aura TP") end
@@ -72,38 +72,43 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- LÓGICA DE AUTO-REVIVE E AUXÍLIO
+-- LÓGICA DE ALVO (SEM LIMITE DE DISTÂNCIA)
 -- ==========================================
 
--- Função para reviver/resetar ao morrer
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    if killAuraLigado or aimbotLigado then
-        print("Yelzy Hub: Re-ativando funções após respawn")
-    end
-end)
-
 local function obterProximo()
-    local alvo, dist = nil, 600
+    local alvo, menorDist = nil, math.huge -- "math.huge" remove o limite de distância
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
             if p.Character.Humanoid.Health > 0 then
-                local d = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                if d < dist then dist = d alvo = p.Character end
+                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                if dist < menorDist then
+                    menorDist = dist
+                    alvo = p.Character
+                end
             end
         end
     end
     return alvo
 end
 
--- Loop de Atirar (FPS)
+-- Loop de Sky Mod e Auto-Shoot (Exclusivo FPS Passeio)
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        RunService.Heartbeat:Wait()
         if aimbotLigado and eFlick then
             local alvo = obterProximo()
-            if alvo then
-                -- Simula clique pressionado por um tempo maior para o jogo aceitar
+            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local meuRoot = LocalPlayer.Character.HumanoidRootPart
+                local alvoRoot = alvo.HumanoidRootPart
+                
+                -- Teleporte para o alto (Sky Mod)
+                meuRoot.Velocity = Vector3.new(0,0,0)
+                meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 20, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+                
+                -- Mira trava 100% no inimigo
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvoRoot.Position)
+                
+                -- Disparo Automático
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.05)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -112,30 +117,25 @@ task.spawn(function()
     end
 end)
 
--- Loop Kill Aura Corrigido (Sem travar movimento)
+-- Loop Kill Aura (Jujutsu - Dentro do Player)
 task.spawn(function()
     while true do
-        RunService.Heartbeat:Wait()
+        task.wait()
         if killAuraLigado and eJujutsu then
             local alvo = obterProximo()
-            if alvo and LocalPlayer.Character then
-                local meuRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
-                if meuRoot and alvoRoot then
-                    -- Em vez de travar o movimento, ele faz um "Lerp" suave para a posição do alvo
-                    -- Isso permite que você ainda consiga andar um pouco
-                    meuRoot.CFrame = alvoRoot.CFrame * CFrame.new(0, 0, 1)
-                    
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                    task.wait(0.02)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                end
+            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local meuRoot = LocalPlayer.Character.HumanoidRootPart
+                meuRoot.CFrame = alvo.HumanoidRootPart.CFrame
+                
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.01)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
             end
         end
     end
 end)
 
--- RenderStepped: Aimbot e ESP
+-- RenderStepped: ESP e Travamento de Câmera
 RunService.RenderStepped:Connect(function()
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
@@ -147,23 +147,9 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-
-    if aimbotLigado then
-        local alvo = obterProximo()
-        if alvo and alvo:FindFirstChild("HumanoidRootPart") then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
-        end
-    end
 end)
 
--- Controles
-btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado alternarVisual(btnAim, strokeAim, aimbotLigado) end)
-btnEsp.MouseButton1Click:Connect(function() espLigado = not espLigado alternarVisual(btnEsp, strokeEsp, espLigado) end)
-if btnKill then
-    btnKill.MouseButton1Click:Connect(function() killAuraLigado = not killAuraLigado alternarVisual(btnKill, strokeKill, killAuraLigado) end)
-end
-
--- Botão de Minimizar para Mobile
+-- Botão de Minimizar (Mobile)
 local minBtn = Instance.new("TextButton", screenGui)
 minBtn.Size = UDim2.new(0, 40, 0, 40)
 minBtn.Position = UDim2.new(0, 5, 0, 50)
@@ -174,3 +160,10 @@ minBtn.MouseButton1Click:Connect(function()
     menuVisivel = not menuVisivel
     mainFrame.Visible = menuVisivel
 end)
+
+-- Eventos de Botão
+btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado alternarVisual(btnAim, strokeAim, aimbotLigado) end)
+btnEsp.MouseButton1Click:Connect(function() espLigado = not espLigado alternarVisual(btnEsp, strokeEsp, espLigado) end)
+if btnKill then
+    btnKill.MouseButton1Click:Connect(function() killAuraLigado = not killAuraLigado alternarVisual(btnKill, strokeKill, killAuraLigado) end)
+end
