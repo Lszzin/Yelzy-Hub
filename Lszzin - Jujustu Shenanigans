@@ -1,3 +1,4 @@
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -24,7 +25,7 @@ local eFlick = (PlaceId == ID_FLICK)
 -- INTERFACE CUSTOMIZADA
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V6"
+screenGui.Name = "YelzyHub_V7"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -43,7 +44,6 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSans
 title.TextSize = 14
 
--- Título Dinâmico
 if eJujutsu then
     title.Text = "Yelzy Hub / Jujutsu Shenanigans"
 elseif eFlick then
@@ -71,17 +71,11 @@ local function criarBotao(nome)
     return btn, stroke
 end
 
--- NOMES DINÂMICOS DOS BOTÕES
-local textoAimbot = "Aimbot Gun/Knive" -- Padrão para FPS
-if eJujutsu then
-    textoAimbot = "Aimbot Skill and Punches"
-end
-
+local textoAimbot = eJujutsu and "Aimbot Skill and Punches" or "Aimbot + AutoShoot"
 local btnAim, strokeAim = criarBotao(textoAimbot)
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
 
--- Botão Kill Aura (Exclusivo Jujutsu)
 if eJujutsu then
     btnKill, strokeKill = criarBotao("Kill aura + Aimbot")
 end
@@ -97,7 +91,7 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- LÓGICA DE FUNCIONAMENTO
+-- LÓGICA DE RECONHECIMENTO E DISPARO
 -- ==========================================
 
 local function obterProximo()
@@ -111,7 +105,23 @@ local function obterProximo()
     return alvo
 end
 
--- Atalho para esconder o menu
+-- Loop de Disparo Automático (Trigger Bot)
+task.spawn(function()
+    while true do
+        task.wait(0.05) -- Pequeno delay para simular reflexo humano
+        if aimbotLigado and eFlick then
+            local alvo = obterProximo()
+            if alvo then
+                -- O VirtualInputManager pressiona o botão esquerdo do mouse (MB1)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.01)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end
+        end
+    end
+end)
+
+-- Tecla INSERT para esconder menu
 UserInputService.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.Insert then
         menuVisivel = not menuVisivel
@@ -130,7 +140,7 @@ task.spawn(function()
                 local alvoRoot = alvo:FindFirstChild("HumanoidRootPart")
                 
                 meuRoot.Velocity = Vector3.new(0,0,0)
-                meuRoot.CFrame = alvoRoot.CFrame -- Dentro do inimigo
+                meuRoot.CFrame = alvoRoot.CFrame
                 
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -158,6 +168,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- AIMBOT TOTAL
     if aimbotLigado or (killAuraLigado and eJujutsu) then
         local alvo = obterProximo()
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
