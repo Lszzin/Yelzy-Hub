@@ -11,6 +11,7 @@ local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
 local menuVisivel = true
+local alvoTravado = nil -- Guarda o alvo atual para não ficar pulando
 
 -- IDs DOS JOGOS
 local ID_JUJUTSU = 9391468976
@@ -20,10 +21,10 @@ local eJujutsu = (PlaceId == ID_JUJUTSU)
 local eFlick = (PlaceId == ID_FLICK)
 
 -- ==========================================
--- INTERFACE (MOBILE FRIENDLY)
+-- INTERFACE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V10"
+screenGui.Name = "YelzyHub_V12"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -61,10 +62,11 @@ local function criarBotao(nome)
     return btn, stroke
 end
 
-local btnAim, strokeAim = criarBotao(eFlick and "God View + AutoShoot" or "Aimbot Skill")
+local nomeAimbot = eJujutsu and "Aimbot Skill and Punches" or "Aimbot Gun/Knive"
+local btnAim, strokeAim = criarBotao(nomeAimbot)
 local btnEsp, strokeEsp = criarBotao("Esp Players")
 local btnKill, strokeKill
-if eJujutsu then btnKill, strokeKill = criarBotao("Kill aura TP") end
+if eJujutsu then btnKill, strokeKill = criarBotao("Kill aura + Aimbot") end
 
 local function alternarVisual(btn, stroke, ativo)
     btn.Size = ativo and UDim2.new(0.95, 0, 0, 45) or UDim2.new(0.9, 0, 0, 40)
@@ -72,73 +74,55 @@ local function alternarVisual(btn, stroke, ativo)
 end
 
 -- ==========================================
--- LÓGICA DE ALVO (SEM LIMITE)
+-- LÓGICA DE VISIBILIDADE E TRAVA
 -- ==========================================
 
-local function obterProximo()
-    local alvo, menorDist = nil, math.huge
+local function estaVisivel(p_char)
+    if not p_char or not p_char:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local char = LocalPlayer.Character
+    if not char then return false end
+    
+    -- Raycast para checar se há parede entre a câmera e o alvo
+    local rayParam = RaycastParams.new()
+    rayParam.FilterType = Enum.RaycastFilterType.Exclude
+    rayParam.FilterDescendantsInstances = {char, p_char, Camera}
+    
+    local direcao = p_char.HumanoidRootPart.Position - Camera.CFrame.Position
+    local resultado = workspace:Raycast(Camera.CFrame.Position, direcao, rayParam)
+    
+    if resultado then
+        return false -- Tem parede no caminho
+    end
+    return true -- Caminho limpo
+end
+
+local function obterAlvo()
+    -- Se já temos um alvo, ele ainda está vivo e visível?
+    if alvoTravado and alvoTravado:FindFirstChild("Humanoid") and alvoTravado.Humanoid.Health > 0 and estaVisivel(alvoTravado) then
+        return alvoTravado
+    end
+
+    -- Se não, procura um novo alvo visível mais próximo
+    local novoAlvo, menorDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
-            if p.Character.Humanoid.Health > 0 then
-                -- No God View, focamos no mais próximo da mira para ser mais rápido
-                local pos, naTela = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+            if p.Character.Humanoid.Health > 0 and estaVisivel(p.Character) then
                 local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
                 if dist < menorDist then
                     menorDist = dist
-                    alvo = p.Character
+                    novoAlvo = p.Character
                 end
             end
         end
     end
-    return alvo
+    alvoTravado = novoAlvo
+    return novoAlvo
 end
 
--- Loop de God View (Ficar no céu do mapa atirando)
-task.spawn(function()
-    while true do
-        RunService.Heartbeat:Wait()
-        if aimbotLigado and eFlick then
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                local meuRoot = LocalPlayer.Character.HumanoidRootPart
-                
-                -- Teleporta para o ponto mais alto do centro do mapa (Y = 150 ou 200)
-                -- Mantemos o X e Z originais ou podemos fixar no centro 0, 150, 0
-                meuRoot.Velocity = Vector3.new(0,0,0)
-                meuRoot.CFrame = CFrame.new(meuRoot.Position.X, 150, meuRoot.Position.Z)
-                
-                local alvo = obterProximo()
-                if alvo and alvo:FindFirstChild("HumanoidRootPart") then
-                    -- Mira no inimigo lá embaixo
-                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
-                    
-                    -- Atira sem parar
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                    task.wait(0.05)
-                    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                end
-            end
-        end
-    end
-end)
-
--- Loop Kill Aura (Jujutsu - Dentro do Player)
-task.spawn(function()
-    while true do
-        task.wait()
-        if killAuraLigado and eJujutsu then
-            local alvo = obterProximo()
-            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.01)
-                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            end
-        end
-    end
-end)
-
--- RenderStepped: ESP
+-- RenderStepped: Travamento de Mira
 RunService.RenderStepped:Connect(function()
+    -- ESP
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
@@ -146,6 +130,32 @@ RunService.RenderStepped:Connect(function()
                 h.Name = "EspHighlight"
                 h.FillColor = Color3.new(1, 0, 0)
                 h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            end
+        end
+    end
+
+    -- AIMBOT (Com trava de alvo e check de parede)
+    if aimbotLigado then
+        local alvo = obterAlvo()
+        if alvo and alvo:FindFirstChild("HumanoidRootPart") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
+        end
+    else
+        alvoTravado = nil
+    end
+end)
+
+-- Loop Kill Aura (Jujutsu)
+task.spawn(function()
+    while true do
+        task.wait()
+        if killAuraLigado and eJujutsu then
+            local alvo = obterAlvo()
+            if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.01)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
             end
         end
     end
