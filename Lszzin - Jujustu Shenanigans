@@ -9,7 +9,6 @@ local aimbotLigado = false
 local espLigado = false
 local killAuraLigado = false
 local menuVisivel = true
-local alvoTravado = nil 
 
 -- IDs DOS JOGOS
 local ID_JUJUTSU = 9391468976
@@ -24,10 +23,31 @@ local eGunfight = (PlaceId == ID_GUNFIGHT)
 local eStrongest = (PlaceId == ID_STRONGEST)
 
 -- ==========================================
+-- FUNÇÃO DE VISIBILIDADE (RAYCAST)
+-- ==========================================
+local function estaVisivel(personagem)
+    if not personagem or not personagem:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local origem = Camera.CFrame.Position
+    local destino = personagem.HumanoidRootPart.Position
+    local direcao = destino - origem
+    
+    local parametros = RaycastParams.new()
+    parametros.FilterDescendantsInstances = {LocalPlayer.Character, personagem}
+    parametros.FilterType = Enum.RaycastFilterType.Exclude
+    parametros.IgnoreWater = true
+    
+    local resultado = workspace:Raycast(origem, direcao, parametros)
+    
+    -- Se o resultado for nil, significa que não bateu em nenhuma parede
+    return resultado == nil
+end
+
+-- ==========================================
 -- INTERFACE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V28"
+screenGui.Name = "YelzyHub_V29"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -50,7 +70,6 @@ title.BackgroundTransparency = 1
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 15
 
--- Títulos Automáticos
 if eGunfight then title.Text = "Yelzy Hub - Gunfight Arena"
 elseif eFlick then title.Text = "Yelzy Hub - FPS Passeio"
 elseif eJujutsu then title.Text = "Yelzy Hub - Jujutsu Shenanigans"
@@ -81,7 +100,6 @@ local function criarBotao(nome)
     return btn, s
 end
 
--- BOTOES
 local btnAim, sAim = criarBotao("Aimbot Gun")
 local btnEsp, sEsp = criarBotao("Esp Players")
 
@@ -96,7 +114,7 @@ local function atualizarBotao(btn, s, cond)
 end
 
 -- ==========================================
--- LOGICA DE ALVO (TEAM CHECK APENAS GUNFIGHT)
+-- LÓGICA DE ALVO DINÂMICO (PROXIMIDADE + VISÍVEL)
 -- ==========================================
 
 local function ehAlvoValido(p)
@@ -108,56 +126,48 @@ local function ehAlvoValido(p)
     return true 
 end
 
-local function obterAlvo()
-    if alvoTravado and alvoTravado:FindFirstChild("Humanoid") and alvoTravado.Humanoid.Health > 0 then
-        local pAlvo = Players:GetPlayerFromCharacter(alvoTravado)
-        if pAlvo and ehAlvoValido(pAlvo) then
-            return alvoTravado
-        end
-    end
-
+local function obterMelhorAlvo()
     local alvo, menorDist = nil, math.huge
+    
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             if p.Character.Humanoid.Health > 0 and ehAlvoValido(p) then
-                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                if dist < menorDist then
-                    menorDist = dist
-                    alvo = p.Character
+                -- Verifica se o inimigo está visível (não atrás da parede)
+                if estaVisivel(p.Character) then
+                    local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                    -- Sempre escolhe o que estiver mais perto
+                    if dist < menorDist then
+                        menorDist = dist
+                        alvo = p.Character
+                    end
                 end
             end
         end
     end
-    alvoTravado = alvo
     return alvo
 end
 
 -- ==========================================
--- LOOP DE RENDERIZAÇÃO (MIRA)
+-- LOOP DE RENDERIZAÇÃO
 -- ==========================================
 
 RunService.RenderStepped:Connect(function()
-    -- ESP
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and ehAlvoValido(p) then
                 local h = p.Character:FindFirstChild("YelzyESP") or Instance.new("Highlight", p.Character)
                 h.Name = "YelzyESP"
-                h.FillColor = Color3.new(1, 0, 0)
+                h.FillColor = estaVisivel(p.Character) and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
                 h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             end
         end
     end
 
-    -- AIMBOT 100% (SÓ MIRA, ZERO CLIQUES)
     if aimbotLigado then
-        local alvo = obterAlvo()
+        local alvo = obterMelhorAlvo() -- Busca constante pelo melhor/mais próximo visível
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
-            -- Mira 100% Bruta
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
         end
-    else
-        alvoTravado = nil
     end
 end)
 
@@ -167,7 +177,7 @@ task.spawn(function()
     while true do
         task.wait()
         if killAuraLigado and (eJujutsu or eStrongest) then
-            local alvo = obterAlvo()
+            local alvo = obterMelhorAlvo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
@@ -192,7 +202,6 @@ yBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = menuVisivel
 end)
 
--- EVENTOS DOS BOTÕES
 btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado atualizarBotao(btnAim, sAim, aimbotLigado) end)
 btnEsp.MouseButton1Click:Connect(function() 
     espLigado = not espLigado 
