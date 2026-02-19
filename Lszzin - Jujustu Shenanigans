@@ -12,22 +12,23 @@ local killAuraLigado = false
 local menuVisivel = true
 local alvoTravado = nil 
 
--- IDs DOS JOGOS (OS 4 JOGOS)
+-- IDs DOS JOGOS
 local ID_JUJUTSU = 9391468976
 local ID_FPS_PASSEIO = 136801880565837
 local ID_GUNFIGHT = 14518422161
 local ID_STRONGEST = 10449761463 
 
+-- Verificações de Jogo
 local eJujutsu = (PlaceId == ID_JUJUTSU)
 local eFlick = (PlaceId == ID_FPS_PASSEIO)
 local eGunfight = (PlaceId == ID_GUNFIGHT)
 local eStrongest = (PlaceId == ID_STRONGEST)
 
 -- ==========================================
--- INTERFACE (MOBILE FRIENDLY)
+-- INTERFACE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V20"
+screenGui.Name = "YelzyHub_V26"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -50,11 +51,11 @@ title.BackgroundTransparency = 1
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 15
 
--- Título Dinâmico conforme o jogo
-if eJujutsu then title.Text = "Yelzy Hub Main - Jujutsu"
-elseif eFlick then title.Text = "Yelzy Hub Main - FPS Passeio"
-elseif eGunfight then title.Text = "Yelzy Hub Main - Gunfight Arena"
-elseif eStrongest then title.Text = "Yelzy Hub Main - Battlegrounds"
+-- Títulos Automáticos
+if eGunfight then title.Text = "Yelzy Hub - Gunfight Arena"
+elseif eFlick then title.Text = "Yelzy Hub - FPS Passeio"
+elseif eJujutsu then title.Text = "Yelzy Hub - Jujutsu Shenanigans"
+elseif eStrongest then title.Text = "Yelzy Hub - The Strongest Battlegrounds"
 else title.Text = "Yelzy Hub - Multijogos" end
 
 local container = Instance.new("Frame", mainFrame)
@@ -81,12 +82,10 @@ local function criarBotao(nome)
     return btn, s
 end
 
--- Botões com os nomes exatos que você pediu
 local btnAim, sAim = criarBotao("Aimbot Punch and skill")
 local btnEsp, sEsp = criarBotao("Esp Players")
-local btnKill, sKill
 
--- Botão de Kill Aura só aparece em jogos de luta (Jujutsu e Strongest)
+local btnKill, sKill
 if eJujutsu or eStrongest then
     btnKill, sKill = criarBotao("Tp To Player atack (kill aura)")
 end
@@ -97,19 +96,32 @@ local function atualizarBotao(btn, s, cond)
 end
 
 -- ==========================================
--- LÓGICA DE ALVO (100% PRECISO)
+-- LÓGICA DE TEAM CHECK (APENAS GUNFIGHT ARENA)
 -- ==========================================
 
+local function ehAlvoValido(p)
+    -- Se estiver no Gunfight Arena, ativa o Team Check
+    if eGunfight then
+        if p.Team ~= nil and LocalPlayer.Team ~= nil then
+            return p.Team ~= LocalPlayer.Team
+        end
+    end
+    -- Nos outros jogos, mira em qualquer um
+    return true 
+end
+
 local function obterAlvo()
-    -- Trava no alvo até ele morrer (Target Lock)
     if alvoTravado and alvoTravado:FindFirstChild("Humanoid") and alvoTravado.Humanoid.Health > 0 then
-        return alvoTravado
+        local pAlvo = Players:GetPlayerFromCharacter(alvoTravado)
+        if pAlvo and ehAlvoValido(pAlvo) then
+            return alvoTravado
+        end
     end
 
     local alvo, menorDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            if p.Character.Humanoid.Health > 0 then
+            if p.Character.Humanoid.Health > 0 and ehAlvoValido(p) then
                 local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
                 if dist < menorDist then
                     menorDist = dist
@@ -123,14 +135,13 @@ local function obterAlvo()
 end
 
 -- ==========================================
--- LOOP PRINCIPAL
+-- EXECUÇÃO
 -- ==========================================
 
 RunService.RenderStepped:Connect(function()
-    -- ESP
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
+            if p ~= LocalPlayer and p.Character and ehAlvoValido(p) then
                 local h = p.Character:FindFirstChild("YelzyESP") or Instance.new("Highlight", p.Character)
                 h.Name = "YelzyESP"
                 h.FillColor = Color3.new(1, 0, 0)
@@ -139,14 +150,11 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- AIMBOT 100% (Mira direta no RootPart)
     if aimbotLigado then
         local alvo = obterAlvo()
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
-            -- Mira 100% sem suavidade
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
             
-            -- Auto-Atirar para jogos de tiro (FPS Passeio e Gunfight)
             if eFlick or eGunfight then
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.02)
@@ -158,14 +166,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- KILL AURA (TP + ATACK)
+-- Kill Aura (Jujutsu/Strongest)
 task.spawn(function()
     while true do
         task.wait()
         if killAuraLigado and (eJujutsu or eStrongest) then
             local alvo = obterAlvo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                -- Gruda no player e ataca
                 LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.01)
@@ -175,7 +182,7 @@ task.spawn(function()
     end
 end)
 
--- Botão Minimizar "Y"
+-- Botão Minimizar
 local yBtn = Instance.new("TextButton", screenGui)
 yBtn.Size = UDim2.new(0, 45, 0, 45)
 yBtn.Position = UDim2.new(0, 10, 0, 10)
@@ -189,22 +196,20 @@ yBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = menuVisivel
 end)
 
--- Eventos
-btnAim.MouseButton1Click:Connect(function() 
-    aimbotLigado = not aimbotLigado 
-    atualizarBotao(btnAim, sAim, aimbotLigado) 
-end)
+btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado atualizarBotao(btnAim, sAim, aimbotLigado) end)
 btnEsp.MouseButton1Click:Connect(function() 
     espLigado = not espLigado 
     atualizarBotao(btnEsp, sEsp, espLigado) 
+    if not espLigado then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("YelzyESP") then p.Character.YelzyESP:Destroy() end
+        end
+    end
 end)
 if btnKill then
     btnKill.MouseButton1Click:Connect(function() 
         killAuraLigado = not killAuraLigado 
         atualizarBotao(btnKill, sKill, killAuraLigado)
-        if killAuraLigado then 
-            aimbotLigado = true 
-            atualizarBotao(btnAim, sAim, true)
-        end
+        if killAuraLigado then aimbotLigado = true atualizarBotao(btnAim, sAim, true) end
     end)
 end
