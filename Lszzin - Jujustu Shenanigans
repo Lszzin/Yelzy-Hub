@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local PlaceId = game.PlaceId
@@ -28,7 +27,7 @@ local eStrongest = (PlaceId == ID_STRONGEST)
 -- INTERFACE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V27"
+screenGui.Name = "YelzyHub_V28"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -39,10 +38,10 @@ mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
 
-local corner = Instance.new("UICorner", mainFrame)
 local stroke = Instance.new("UIStroke", mainFrame)
 stroke.Color = Color3.fromRGB(200, 0, 0)
 stroke.Thickness = 2
+Instance.new("UICorner", mainFrame)
 
 local title = Instance.new("TextLabel", mainFrame)
 title.Size = UDim2.new(1, 0, 0, 40)
@@ -82,7 +81,7 @@ local function criarBotao(nome)
     return btn, s
 end
 
--- NOME ALTERADO PARA "Aimbot Gun"
+-- BOTOES
 local btnAim, sAim = criarBotao("Aimbot Gun")
 local btnEsp, sEsp = criarBotao("Esp Players")
 
@@ -97,7 +96,7 @@ local function atualizarBotao(btn, s, cond)
 end
 
 -- ==========================================
--- LÓGICA DE ALVO (TEAM CHECK APENAS GUNFIGHT)
+-- LOGICA DE ALVO (TEAM CHECK APENAS GUNFIGHT)
 -- ==========================================
 
 local function ehAlvoValido(p)
@@ -134,10 +133,11 @@ local function obterAlvo()
 end
 
 -- ==========================================
--- EXECUÇÃO
+-- LOOP DE RENDERIZAÇÃO (MIRA)
 -- ==========================================
 
 RunService.RenderStepped:Connect(function()
+    -- ESP
     if espLigado then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and ehAlvoValido(p) then
@@ -149,10 +149,11 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- AIMBOT 100% PRECISÃO (SÓ MIRA, NÃO ATIRA)
+    -- AIMBOT 100% (SÓ MIRA, ZERO CLIQUES)
     if aimbotLigado then
         local alvo = obterAlvo()
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
+            -- Mira 100% Bruta
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
         end
     else
@@ -160,8 +161,9 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Kill Aura (Apenas Jujutsu/Strongest)
+-- KILL AURA (TP APENAS JOGOS DE LUTA)
 task.spawn(function()
+    local VirtualInputManager = game:GetService("VirtualInputManager")
     while true do
         task.wait()
         if killAuraLigado and (eJujutsu or eStrongest) then
@@ -176,7 +178,7 @@ task.spawn(function()
     end
 end)
 
--- Botão Minimizar
+-- BOTÃO Y (MINIMIZAR)
 local yBtn = Instance.new("TextButton", screenGui)
 yBtn.Size = UDim2.new(0, 45, 0, 45)
 yBtn.Position = UDim2.new(0, 10, 0, 10)
@@ -190,6 +192,7 @@ yBtn.MouseButton1Click:Connect(function()
     mainFrame.Visible = menuVisivel
 end)
 
+-- EVENTOS DOS BOTÕES
 btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado atualizarBotao(btnAim, sAim, aimbotLigado) end)
 btnEsp.MouseButton1Click:Connect(function() 
     espLigado = not espLigado 
