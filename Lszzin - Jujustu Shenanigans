@@ -38,8 +38,6 @@ local function estaVisivel(personagem)
     parametros.IgnoreWater = true
     
     local resultado = workspace:Raycast(origem, direcao, parametros)
-    
-    -- Se o resultado for nil, significa que não bateu em nenhuma parede
     return resultado == nil
 end
 
@@ -47,7 +45,7 @@ end
 -- INTERFACE
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V29"
+screenGui.Name = "YelzyHub_V30"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -92,7 +90,7 @@ local function criarBotao(nome)
     btn.Text = nome
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.SourceSans
-    btn.TextSize = 14
+    btn.TextSize = 13 -- Ajustado para caber o nome longo
     Instance.new("UICorner", btn)
     local s = Instance.new("UIStroke", btn)
     s.Thickness = 0
@@ -103,9 +101,10 @@ end
 local btnAim, sAim = criarBotao("Aimbot Gun")
 local btnEsp, sEsp = criarBotao("Esp Players")
 
+-- NOME ATUALIZADO CONFORME PEDIDO
 local btnKill, sKill
 if eJujutsu or eStrongest then
-    btnKill, sKill = criarBotao("Tp To Player atack (kill aura)")
+    btnKill, sKill = criarBotao("Tp To Player Random and To knock (Risk Ban)")
 end
 
 local function atualizarBotao(btn, s, cond)
@@ -114,7 +113,7 @@ local function atualizarBotao(btn, s, cond)
 end
 
 -- ==========================================
--- LÓGICA DE ALVO DINÂMICO (PROXIMIDADE + VISÍVEL)
+-- LÓGICA DE ALVO
 -- ==========================================
 
 local function ehAlvoValido(p)
@@ -128,14 +127,11 @@ end
 
 local function obterMelhorAlvo()
     local alvo, menorDist = nil, math.huge
-    
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             if p.Character.Humanoid.Health > 0 and ehAlvoValido(p) then
-                -- Verifica se o inimigo está visível (não atrás da parede)
                 if estaVisivel(p.Character) then
                     local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                    -- Sempre escolhe o que estiver mais perto
                     if dist < menorDist then
                         menorDist = dist
                         alvo = p.Character
@@ -148,7 +144,7 @@ local function obterMelhorAlvo()
 end
 
 -- ==========================================
--- LOOP DE RENDERIZAÇÃO
+-- EXECUÇÃO
 -- ==========================================
 
 RunService.RenderStepped:Connect(function()
@@ -164,14 +160,14 @@ RunService.RenderStepped:Connect(function()
     end
 
     if aimbotLigado then
-        local alvo = obterMelhorAlvo() -- Busca constante pelo melhor/mais próximo visível
+        local alvo = obterMelhorAlvo()
         if alvo and alvo:FindFirstChild("HumanoidRootPart") then
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
         end
     end
 end)
 
--- KILL AURA (TP APENAS JOGOS DE LUTA)
+-- TP AND KILL (SÓ JOGOS DE LUTA)
 task.spawn(function()
     local VirtualInputManager = game:GetService("VirtualInputManager")
     while true do
@@ -179,7 +175,7 @@ task.spawn(function()
         if killAuraLigado and (eJujutsu or eStrongest) then
             local alvo = obterMelhorAlvo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+                LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.01)
                 VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -188,7 +184,7 @@ task.spawn(function()
     end
 end)
 
--- BOTÃO Y (MINIMIZAR)
+-- BOTÃO Y
 local yBtn = Instance.new("TextButton", screenGui)
 yBtn.Size = UDim2.new(0, 45, 0, 45)
 yBtn.Position = UDim2.new(0, 10, 0, 10)
@@ -216,6 +212,5 @@ if btnKill then
     btnKill.MouseButton1Click:Connect(function() 
         killAuraLigado = not killAuraLigado 
         atualizarBotao(btnKill, sKill, killAuraLigado)
-        if killAuraLigado then aimbotLigado = true atualizarBotao(btnAim, sAim, true) end
     end)
 end
