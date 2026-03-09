@@ -59,7 +59,7 @@ end
 -- INTERFACE (GUI)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V34"
+screenGui.Name = "YelzyHub_V35"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
@@ -79,7 +79,7 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 15
-title.Text = "Yelzy Hub - V34"
+title.Text = "Yelzy Hub - V35"
 
 local container = Instance.new("Frame", mainFrame)
 container.Size = UDim2.new(1, 0, 1, -40)
@@ -105,8 +105,10 @@ local function criarBotao(nome)
     return btn, s
 end
 
-local btnAim, sAim = criarBotao("Aimbot Gun")
+-- Botões Forçados a aparecer
+local btnAim, sAim = criarBotao("Aimbot Gun") -- AGORA APARECE SEMPRE
 local btnEsp, sEsp = criarBotao("Esp Players")
+
 local btnKill, sKill
 if eJogoDeLuta then
     btnKill, sKill = criarBotao("Tp To Player Random and To knock (Risk Ban)")
@@ -138,10 +140,10 @@ RunService.RenderStepped:Connect(function()
             local objetivo = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
             
             if eJujutsu then
-                -- No Jujutsu: Mira Suave (0.15) para não bugar
+                -- No Jujutsu: Mira Suave (0.15)
                 Camera.CFrame = Camera.CFrame:Lerp(objetivo, 0.15)
             else
-                -- Nos outros jogos (Gunfight, etc): Mira 100% Travada
+                -- Outros: Travado 100%
                 Camera.CFrame = objetivo
             end
         end
