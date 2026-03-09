@@ -10,12 +10,10 @@ local ID_FPS_PASSEIO = 136801880565837
 local ID_GUNFIGHT = 14518422161
 local ID_STRONGEST = 10449761463 
 
--- Verificações de Jogo
+-- Verificações
 local eJujutsu = (PlaceId == ID_JUJUTSU)
-local eFlick = (PlaceId == ID_FPS_PASSEIO)
 local eGunfight = (PlaceId == ID_GUNFIGHT)
 local eStrongest = (PlaceId == ID_STRONGEST)
-local eJogoDeTiro = (eGunfight or eFlick)
 local eJogoDeLuta = (eJujutsu or eStrongest)
 
 -- Variáveis de Estado
@@ -38,30 +36,19 @@ local function estaVisivel(personagem)
     return resultado == nil
 end
 
-local function obterAlvoAimbot()
-    if not eJogoDeTiro then return nil end -- BLOQUEIO: Não busca alvo de tiro no Jujutsu
+local function obterMelhorAlvo()
     local alvo, menorDist = nil, math.huge
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local teamCheck = true
-            if eGunfight and p.Team == LocalPlayer.Team then teamCheck = false end
-            if p.Character.Humanoid.Health > 0 and teamCheck and estaVisivel(p.Character) then
+            local podeMirar = true
+            if eGunfight and p.Team == LocalPlayer.Team then podeMirar = false end
+            
+            if p.Character.Humanoid.Health > 0 and podeMirar and estaVisivel(p.Character) then
                 local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                if dist < menorDist then menorDist = dist alvo = p.Character end
-            end
-        end
-    end
-    return alvo
-end
-
-local function obterAlvoLuta()
-    if not eJogoDeLuta then return nil end -- BLOQUEIO: Não busca alvo de luta no Gunfight
-    local alvo, menorDist = nil, math.huge
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            if p.Character.Humanoid.Health > 0 and estaVisivel(p.Character) then
-                local dist = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-                if dist < menorDist then menorDist = dist alvo = p.Character end
+                if dist < menorDist then
+                    menorDist = dist
+                    alvo = p.Character
+                end
             end
         end
     end
@@ -72,11 +59,11 @@ end
 -- INTERFACE (GUI)
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-screenGui.Name = "YelzyHub_V32"
+screenGui.Name = "YelzyHub_V34"
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
-mainFrame.Size = UDim2.new(0, 230, 0, 180)
+mainFrame.Size = UDim2.new(0, 230, 0, 190)
 mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Instance.new("UICorner", mainFrame)
@@ -92,9 +79,7 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 15
-if eGunfight then title.Text = "Yelzy Hub - Gunfight Arena"
-elseif eJujutsu then title.Text = "Yelzy Hub - Jujutsu Shenanigans"
-else title.Text = "Yelzy Hub - Multijogos" end
+title.Text = "Yelzy Hub - V34"
 
 local container = Instance.new("Frame", mainFrame)
 container.Size = UDim2.new(1, 0, 1, -40)
@@ -106,7 +91,7 @@ layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 local function criarBotao(nome)
     local btn = Instance.new("TextButton", container)
-    btn.Size = UDim2.new(0.9, 0, 0, 45)
+    btn.Size = UDim2.new(0.9, 0, 0, 42)
     btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     btn.Text = nome
     btn.TextColor3 = Color3.new(1, 1, 1)
@@ -120,13 +105,12 @@ local function criarBotao(nome)
     return btn, s
 end
 
-local btnAim, sAim
-if eJogoDeTiro then btnAim, sAim = criarBotao("Aimbot Gun") end
-
+local btnAim, sAim = criarBotao("Aimbot Gun")
 local btnEsp, sEsp = criarBotao("Esp Players")
-
 local btnKill, sKill
-if eJogoDeLuta then btnKill, sKill = criarBotao("Tp To Player Random and To knock (Risk Ban)") end
+if eJogoDeLuta then
+    btnKill, sKill = criarBotao("Tp To Player Random and To knock (Risk Ban)")
+end
 
 local function atualizarBotao(btn, s, cond)
     s.Thickness = cond and 2 or 0
@@ -134,7 +118,7 @@ local function atualizarBotao(btn, s, cond)
 end
 
 -- ==========================================
--- LOOPS DE EXECUÇÃO
+-- LOOPS
 -- ==========================================
 RunService.RenderStepped:Connect(function()
     if espLigado then
@@ -148,10 +132,19 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- MIRA 100% (SÓ JOGOS DE TIRO)
-    if aimbotLigado and eJogoDeTiro then
-        local alvo = obterAlvoAimbot()
-        if alvo then Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position) end
+    if aimbotLigado then
+        local alvo = obterMelhorAlvo()
+        if alvo and alvo:FindFirstChild("HumanoidRootPart") then
+            local objetivo = CFrame.new(Camera.CFrame.Position, alvo.HumanoidRootPart.Position)
+            
+            if eJujutsu then
+                -- No Jujutsu: Mira Suave (0.15) para não bugar
+                Camera.CFrame = Camera.CFrame:Lerp(objetivo, 0.15)
+            else
+                -- Nos outros jogos (Gunfight, etc): Mira 100% Travada
+                Camera.CFrame = objetivo
+            end
+        end
     end
 end)
 
@@ -159,9 +152,8 @@ task.spawn(function()
     local VIM = game:GetService("VirtualInputManager")
     while true do
         task.wait()
-        -- TP E ATAQUE (SÓ JOGOS DE LUTA)
         if killAuraLigado and eJogoDeLuta then
-            local alvo = obterAlvoLuta()
+            local alvo = obterMelhorAlvo()
             if alvo and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 LocalPlayer.Character.HumanoidRootPart.CFrame = alvo.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
                 VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
@@ -181,7 +173,7 @@ yBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", yBtn).CornerRadius = UDim.new(1, 0)
 yBtn.MouseButton1Click:Connect(function() menuVisivel = not menuVisivel mainFrame.Visible = menuVisivel end)
 
-if btnAim then btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado atualizarBotao(btnAim, sAim, aimbotLigado) end) end
+btnAim.MouseButton1Click:Connect(function() aimbotLigado = not aimbotLigado atualizarBotao(btnAim, sAim, aimbotLigado) end)
 btnEsp.MouseButton1Click:Connect(function() 
     espLigado = not espLigado 
     atualizarBotao(btnEsp, sEsp, espLigado) 
